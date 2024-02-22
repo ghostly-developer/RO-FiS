@@ -88,17 +88,30 @@ public:
 class Partition {
 public:
     std::string id;
-    int size; // Size in MB
-    int used; // Used space in MB
+    int size; //Both values simulate MB
+    int used;
 
-    Partition(std::string id, int size) : id(std::move(id)), size(size), used(0) {}
+    // Constructor that accepts ID, size, and used space
+    Partition(const std::string& id, int size, int used = 0) : id(id), size(size), used(used) {}
 
    
 };
 
 class DiskManager {
     std::vector<Partition> partitions;
+    Partition* activePartition = nullptr;
     const int maxDiskSize = 100; // Total simulated disk size in MB
+
+public:
+    bool setActivePartition(const std::string& id) {
+        for (auto& partition : partitions) {
+            if (partition.id == id) {
+                activePartition = &partition;
+                return true;
+            }
+        }
+        return false;
+    }
 
 public:
     DiskManager() {}
@@ -146,6 +159,27 @@ public:
         return true;
     }
 
+    void savePartitions(const std::string& filename) {
+        std::ofstream outFile(filename);
+        for (const auto& partition : partitions) {
+            outFile << partition.id << " " << partition.size << " " << partition.used << std::endl;
+        }
+    }
+
+    void loadPartitions(const std::string& filename) {
+        std::ifstream inFile(filename);
+        std::string line;
+        while (std::getline(inFile, line)) {
+            std::istringstream lineStream(line);
+            std::string id;
+            int size, used;
+            if (lineStream >> id >> size >> used) {
+                // Assuming a method to add a partition directly without checking disk space
+                partitions.emplace_back(id, size, used);
+            }
+        }
+    }
+
 };
 
 class FileSystem {
@@ -156,10 +190,17 @@ private:
 
 public:
 
+    std::string currentPartition = "root";
     std::string currentPath = "root";
-    FileSystem() : root(std::make_shared<Directory>("root")), currentDirectory(root) {}
+
+    FileSystem() : root(std::make_shared<Directory>("root")), currentDirectory(root), diskManager() {
+        diskManager.loadPartitions("partitions.txt");
+    }
 
 
+    ~FileSystem() {
+        diskManager.savePartitions("partitions.txt");
+    }
 
 
     void createFile(const std::string& name, const std::string& content) {
@@ -244,6 +285,24 @@ public:
         return true;
     }
 
+    void switchPartition(const std::string& partitionName) {
+        if (diskManager.setActivePartition(partitionName)) {
+            currentPath = partitionName;
+        }
+        else {
+            std::cout << "Partition does not exist." << std::endl;
+        }
+    }
+
+    void returnToRoot() {
+        currentPartition = "root";
+        // Reset any other necessary states to root defaults
+    }
+
+    void displayPrompt() const {
+        std::cout << currentPartition << "> ";
+
+    }
     void runPartitionManager(const std::vector<std::string>& args) {
         if (args.empty()) {
             std::cout << "No command provided. Use 'use pmgr help' for a list of commands." << std::endl;
@@ -297,7 +356,22 @@ public:
             std::cout << "  delete [partitionID] - Deletes the specified partition.\n";
             std::cout << "  resize [partitionID] [newSizeInMB] - Resizes the specified partition to the new size.\n";
             std::cout << "  list - Lists all partitions.\n";
+            std::cout << "  access [partitionID] - Sets the active partition to the specified ID.\n";  // New command for setting the active partition
             std::cout << "  help - Displays this help message.\n";
+        }
+        else if (args[0] == "access") {
+            if (args.size() < 2) {
+                std::cout << "Insufficient arguments for access. Usage: access [partitionID]" << std::endl;
+                return;
+            }
+
+            bool success = diskManager.setActivePartition(args[1]);
+            if (success) { 
+                std::cout << "Switched to partition: " << args[1] << std::endl;
+            }
+            else {
+                std::cout << "Partition not found: " << args[1] << std::endl;
+            }
         }
 
         else {
@@ -380,15 +454,14 @@ int main() {
                 std::cout << "Directory not found or cannot be changed to." << std::endl;
             }
         }
-        else if (tokens[0] == "use" && tokens[1] == "pmgr") {
-            std::vector<std::string> pmgrArgs(tokens.begin() + 2, tokens.end());
-            if (pmgrArgs.size() < 1 or pmgrArgs.size() > 1) {
-                std::cout << "Error: Insufficient arguments provided for pmgr command." << std::endl;
-            }
-            else {
+        if (tokens[0] == "use" && tokens.size() > 1) {
+            // Assuming "use" is for application usage, including "pmgr"
+            if (tokens[1] == "pmgr") {
+                std::vector<std::string> pmgrArgs(tokens.begin() + 2, tokens.end());
                 fs.runPartitionManager(pmgrArgs);
             }
         }
+
 
         else {
             std::cout << "Unknown command or incorrect usage. Type 'help' for assistance." << std::endl;
