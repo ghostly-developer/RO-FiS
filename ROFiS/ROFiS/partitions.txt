@@ -1,1 +1,2 @@
-Root1 20 0
+root1 20 0
+data 10 0

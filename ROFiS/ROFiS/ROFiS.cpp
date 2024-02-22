@@ -113,8 +113,10 @@ public:
         return false;
     }
 
+
 public:
     DiskManager() {}
+
 
     // Method to create a partition
     bool createPartition(const std::string& id, int size) {
@@ -140,9 +142,17 @@ public:
     // Method to list partitions
     void listPartitions() const {
         for (const auto& partition : partitions) {
-            std::cout << "Partition ID: " << partition.id << ", Size: " << partition.size << "MB, Used Space: " << partition.used << "MB\n";
+            std::cout << "Partition ID: " << partition.id;
+            std::cout << ", Size: " << partition.size << "MB";
+            std::cout << ", Used: " << partition.used << "MB";
+
+            if (&partition == activePartition) {
+                std::cout << " (current)";
+            }
+            std::cout << std::endl;
         }
     }
+
 
     bool resizePartition(const std::string& id, int newSize) {
         int currentDiskUsage = std::accumulate(partitions.begin(), partitions.end(), 0,
@@ -178,6 +188,13 @@ public:
                 partitions.emplace_back(id, size, used);
             }
         }
+        if (!partitions.empty()) {
+            activePartition = &partitions.front(); // Set the first partition as the default active partition
+        }
+    }
+
+    Partition* getActivePartition() {
+        return activePartition;
     }
 
 };
@@ -190,7 +207,7 @@ private:
 
 public:
 
-    std::string currentPartition = "root";
+    std::string currentPartition = "";
     std::string currentPath = "root";
 
     FileSystem() : root(std::make_shared<Directory>("root")), currentDirectory(root), diskManager() {
@@ -299,10 +316,12 @@ public:
         // Reset any other necessary states to root defaults
     }
 
-    void displayPrompt() const {
-        std::cout << currentPartition << "> ";
+    void displayPrompt() {
+        std::string partitionId = diskManager.getActivePartition() != nullptr ? diskManager.getActivePartition()->id : "root";
+        std::string prompt = partitionId + ">";
 
     }
+
     void runPartitionManager(const std::vector<std::string>& args) {
         if (args.empty()) {
             std::cout << "No command provided. Use 'use pmgr help' for a list of commands." << std::endl;

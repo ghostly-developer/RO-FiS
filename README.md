@@ -48,6 +48,28 @@ Upon running, RO-FiS presents a CLI where you can enter commands to interact wit
 -   `cd <path>`: Changes the current directory. Use `cd ..` to move up to the parent directory.
 -   `exit`: Exits the program.
 
+## New Features
+
+### Persistent Partition Management
+- **Partition Persistence**: RO-FiS now supports persistent partitions, allowing partitions to be saved and loaded across sessions.
+- **Partition Navigation**: Users can switch between different partitions, simulating a multi-partition file system environment.
+- **Default Partition on Bootup**: Automatically sets a default partition as the active working space when RO-FiS starts.
+
+### Partition Commands
+- `use pmgr create [partitionID] [sizeInMB]`: Creates a new partition with the specified ID and size.
+- `use pmgr delete [partitionID]`: Deletes the specified partition.
+- `use pmgr resize [partitionID] [newSizeInMB]`: Resizes the specified partition.
+- `use pmgr list`: Lists all partitions, marking the current active partition.
+- `use [partitionID]`: Switches the active working partition to the specified ID.
+- `use root`: Returns to the root partition as the active working space.
+
+### Updated CLI Prompt
+- The CLI prompt dynamically updates to reflect the name of the current active partition, enhancing user orientation within the simulated file system.
+
+## Updated Running Instructions
+After compiling RO-FiS, start the application to interact with the file system and the new partition management features through the CLI.
+
+
 ## Contributing
 
 Contributions to RO-FiS are welcome! Feel free to fork the repository, make changes, and submit pull requests. If you have suggestions for additional features or improvements, please open an issue.
