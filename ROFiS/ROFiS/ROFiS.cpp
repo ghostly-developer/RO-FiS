@@ -6,6 +6,10 @@
 #include <iterator>
 #include <vector>
 #include <algorithm>
+#include <fstream>
+#include <numeric>
+
+
 
 class File {
 public:
@@ -81,19 +85,115 @@ public:
     }
 };
 
+class Partition {
+public:
+    std::string id;
+    int size; // Size in MB
+    int used; // Used space in MB
+
+    Partition(std::string id, int size) : id(std::move(id)), size(size), used(0) {}
+
+   
+};
+
+class DiskManager {
+    std::vector<Partition> partitions;
+    const int maxDiskSize = 100; // Total simulated disk size in MB
+
+public:
+    DiskManager() {}
+
+    // Method to create a partition
+    bool createPartition(const std::string& id, int size) {
+        int currentDiskUsage = std::accumulate(partitions.begin(), partitions.end(), 0,
+            [](int sum, const Partition& p) { return sum + p.size; });
+        if (currentDiskUsage + size > maxDiskSize) return false; // No space left
+
+        partitions.emplace_back(id, size);
+        return true;
+    }
+
+    // Method to delete a partition
+    bool deletePartition(const std::string& id) {
+        auto it = std::find_if(partitions.begin(), partitions.end(),
+            [&id](const Partition& p) { return p.id == id; });
+        if (it != partitions.end()) {
+            partitions.erase(it);
+            return true;
+        }
+        return false;
+    }
+
+    // Method to list partitions
+    void listPartitions() const {
+        for (const auto& partition : partitions) {
+            std::cout << "Partition ID: " << partition.id << ", Size: " << partition.size << "MB, Used Space: " << partition.used << "MB\n";
+        }
+    }
+
+    bool resizePartition(const std::string& id, int newSize) {
+        int currentDiskUsage = std::accumulate(partitions.begin(), partitions.end(), 0,
+            [](int sum, const Partition& p) { return sum + p.size; });
+        auto it = std::find_if(partitions.begin(), partitions.end(),
+            [&id](const Partition& p) { return p.id == id; });
+
+        if (it == partitions.end()) return false; // Partition not found
+
+        int spaceAfterRemove = currentDiskUsage - it->size;
+        if (spaceAfterRemove + newSize > maxDiskSize) return false; // Not enough space for new size
+
+        it->size = newSize; // Resize the partition
+        return true;
+    }
+
+};
+
 class FileSystem {
 private:
     std::shared_ptr<Directory> root;
     std::shared_ptr<Directory> currentDirectory;
-    
+    DiskManager diskManager;
 
 public:
+
     std::string currentPath = "root";
     FileSystem() : root(std::make_shared<Directory>("root")), currentDirectory(root) {}
+
+
+
 
     void createFile(const std::string& name, const std::string& content) {
         currentDirectory->addFile(name, content);
     }
+
+
+    void saveToFile(const std::string& filename) {
+        std::ofstream file(filename);
+        if (!file) {
+            std::cerr << "Failed to open file for writing: " << filename << std::endl;
+            return;
+        }
+
+        // Assuming all files are directly under root for simplicity
+        for (const auto& fileEntry : root->files) {
+            file << fileEntry.first << "\n" << fileEntry.second->content << "\n";
+        }
+    }
+
+    void loadFromFile(const std::string& filename) {
+        std::ifstream file(filename);
+        if (!file) {
+            std::cerr << "STATE File Cannot Be Read." << filename << std::endl;
+            return;
+        }
+
+        std::string name, content;
+        while (std::getline(file, name) && std::getline(file, content)) {
+            std::cerr << "STATE File Successfully Read: " << filename << std::endl;
+            root->addFile(name, content); 
+        }
+    }
+
 
     void readFile(const std::string& name) {
         auto file = currentDirectory->getFile(name);
@@ -104,6 +204,8 @@ public:
             std::cout << "File not found" << std::endl;
         }
     }
+
+
 
     void listContents() {
         currentDirectory->listContents();
@@ -141,6 +243,69 @@ public:
         }
         return true;
     }
+
+    void runPartitionManager(const std::vector<std::string>& args) {
+        if (args.empty()) {
+            std::cout << "No command provided. Use 'use pmgr help' for a list of commands." << std::endl;
+            return;
+        }
+        else if (args[0] == "create") {
+            if (args.size() < 3) {
+                std::cout << "Insufficient arguments for create. Usage: use pmgr create [partitionID] [sizeInMB]" << std::endl;
+                return;
+            }
+            bool success = diskManager.createPartition(args[1], std::stoi(args[2]));
+            if (success) {
+                std::cout << "Partition created successfully." << std::endl;
+            }
+            else {
+                std::cout << "Failed to create partition. Disk may be full or partition already exists." << std::endl;
+            }
+        }
+        else if (args[0] == "delete") {
+            if (args.size() < 2) {
+                std::cout << "Insufficient arguments for delete. Usage: use pmgr delete [partitionID]" << std::endl;
+                return;
+            }
+            bool success = diskManager.deletePartition(args[1]);
+            if (success) {
+                std::cout << "Partition deleted successfully." << std::endl;
+            }
+            else {
+                std::cout << "Failed to delete partition. It may not exist." << std::endl;
+            }
+        }
+        else if (args[0] == "resize") {
+            if (args.size() < 3) {
+                std::cout << "Insufficient arguments for resize. Usage: use pmgr resize [partitionID] [newSizeInMB]" << std::endl;
+                return;
+            }
+            bool success = diskManager.resizePartition(args[1], std::stoi(args[2]));
+            if (success) {
+                std::cout << "Partition resized successfully." << std::endl;
+            }
+            else {
+                std::cout << "Failed to resize partition. It may not exist or there's insufficient space." << std::endl;
+            }
+        }
+        else if (args[0] == "list") {
+            diskManager.listPartitions();
+        }
+        else if (args[0] == "help") {
+            std::cout << "pmgr - Partition Manager Commands:\n";
+            std::cout << "  create [partitionID] [sizeInMB] - Creates a new partition with the specified ID and size.\n";
+            std::cout << "  delete [partitionID] - Deletes the specified partition.\n";
+            std::cout << "  resize [partitionID] [newSizeInMB] - Resizes the specified partition to the new size.\n";
+            std::cout << "  list - Lists all partitions.\n";
+            std::cout << "  help - Displays this help message.\n";
+        }
+
+        else {
+            std::cout << "Unknown command. Use 'use pmgr help' for a list of commands." << std::endl;
+        }
+    }
+
+
 };
 
 void printHelp() {
@@ -152,11 +317,13 @@ void printHelp() {
     std::cout << "  dlf <name> - Deletes the specified file" << std::endl;
     std::cout << "  dld <name> - Deletes the specified directory" << std::endl;
     std::cout << "  cd <path> - Changes the current directory" << std::endl;
+    std::cout << "  use <application> - uses a pre-installed application" << std::endl;
     std::cout << "  exit - Exits the program" << std::endl;
 }
 
 int main() {
     FileSystem fs;
+    fs.loadFromFile("filesystem.txt");
     std::string line;
 
     std::cout << "RO-FiS: Rangga's Opensource - File System" << std::endl;
@@ -175,6 +342,8 @@ int main() {
         const std::string& command = tokens[0];
 
         if (command == "exit") {
+            std::cout << "Saving State..." << std::endl;
+            fs.saveToFile("filesystem.txt");
             break;
         }
         else if (command == "help") {
@@ -211,6 +380,16 @@ int main() {
                 std::cout << "Directory not found or cannot be changed to." << std::endl;
             }
         }
+        else if (tokens[0] == "use" && tokens[1] == "pmgr") {
+            std::vector<std::string> pmgrArgs(tokens.begin() + 2, tokens.end());
+            if (pmgrArgs.size() < 1 or pmgrArgs.size() > 1) {
+                std::cout << "Error: Insufficient arguments provided for pmgr command." << std::endl;
+            }
+            else {
+                fs.runPartitionManager(pmgrArgs);
+            }
+        }
+
         else {
             std::cout << "Unknown command or incorrect usage. Type 'help' for assistance." << std::endl;
         }
