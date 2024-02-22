@@ -60,7 +60,7 @@ Upon running, RO-FiS presents a CLI where you can enter commands to interact wit
 - `use pmgr delete [partitionID]`: Deletes the specified partition.
 - `use pmgr resize [partitionID] [newSizeInMB]`: Resizes the specified partition.
 - `use pmgr list`: Lists all partitions, marking the current active partition.
-- `use [partitionID]`: Switches the active working partition to the specified ID.
+- `use pmgr access [partitionID]`: Switches the active working partition to the specified ID.
 - `use root`: Returns to the root partition as the active working space.
 
 ### Updated CLI Prompt
