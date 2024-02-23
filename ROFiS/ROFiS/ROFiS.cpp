@@ -99,10 +99,10 @@ public:
 
 class DiskManager {
     std::vector<Partition> partitions;
-    Partition* activePartition = nullptr;
     const int maxDiskSize = 100; // Total simulated disk size in MB
 
 public:
+    Partition* activePartition = nullptr;
     bool setActivePartition(const std::string& id) {
         for (auto& partition : partitions) {
             if (partition.id == id) {
@@ -203,10 +203,10 @@ class FileSystem {
 private:
     std::shared_ptr<Directory> root;
     std::shared_ptr<Directory> currentDirectory;
-    DiskManager diskManager;
+    
 
 public:
-
+    DiskManager diskManager;
     std::string currentPartition = "";
     std::string currentPath = "root";
 
@@ -424,7 +424,7 @@ int main() {
 
 
     while (true) {
-        std::cout << fs.currentPath << "> ";
+        std::cout << (fs.diskManager.getActivePartition() ? fs.diskManager.getActivePartition()->id : "root") << "> ";
         if (!std::getline(std::cin, line)) break;
 
         std::istringstream iss(line);
@@ -473,15 +473,13 @@ int main() {
                 std::cout << "Directory not found or cannot be changed to." << std::endl;
             }
         }
-        if (tokens[0] == "use" && tokens.size() > 1) {
+        else if (tokens[0] == "use" && tokens.size() > 1) {
             // Assuming "use" is for application usage, including "pmgr"
             if (tokens[1] == "pmgr") {
                 std::vector<std::string> pmgrArgs(tokens.begin() + 2, tokens.end());
                 fs.runPartitionManager(pmgrArgs);
             }
         }
-
-
         else {
             std::cout << "Unknown command or incorrect usage. Type 'help' for assistance." << std::endl;
         }
